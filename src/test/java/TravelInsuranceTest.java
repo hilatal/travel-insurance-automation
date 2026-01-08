@@ -1,13 +1,20 @@
-package tests;
+package tests;  // ודאי שהקובץ נמצא בתיקייה src/test/java/tests/
 
-import org.openqa.selenium.*;
+import io.github.bonigarcia.wdm.WebDriverManager; // מנהל דרייבר
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.support.ui.*;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.testng.Assert;
-import org.testng.annotations.*;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 public class TravelInsuranceTest {
 
@@ -16,7 +23,9 @@ public class TravelInsuranceTest {
 
     @BeforeClass
     public void setup() {
-        System.setProperty("webdriver.chrome.driver", "drivers/chromedriver.exe");
+        // משתמשים ב‑WebDriverManager → לא צריך להוריד או לשים דרייבר ידני
+        WebDriverManager.chromedriver().setup();
+
         driver = new ChromeDriver();
         wait = new WebDriverWait(driver, Duration.ofSeconds(10));
         driver.manage().window().maximize();
@@ -24,27 +33,50 @@ public class TravelInsuranceTest {
 
     @Test
     public void purchaseFlowTest() {
+        // 1. פותח את האתר
         driver.get("https://digital.harel-group.co.il/travel-policy");
 
-        wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//button[contains(text(),'לרכישה בפעם הראשונה')]"))).click();
+        // 2. לוחץ על "לרכישה בפעם הראשונה"
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[contains(text(),'לרכישה בפעם הראשונה')]")
+        )).click();
 
-        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("button"))).click(); // בחירת יבשת
+        // 3. בוחר יבשת (נניח הראשון)
+        wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("button"))).click();
 
-        wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//button[contains(text(),'הלאה')]"))).click();
+        // 4. לוחץ "הלאה לבחירת תאריכי הנסיעה"
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[contains(text(),'הלאה')]")
+        )).click();
 
+        // 5. תאריכי יציאה וחזרה
         LocalDate departureDate = LocalDate.now().plusDays(7);
         LocalDate returnDate = departureDate.plusDays(30);
 
-        // כאן נשתמש ב-Date Picker אמיתי (נממש יחד בשלב הבא)
+        // המרת תאריכים לפורמט dd/MM/yyyy (לפי מה שה‑Date Picker דורש)
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        String depDateStr = departureDate.format(formatter);
+        String retDateStr = returnDate.format(formatter);
 
-        String totalDaysText = wait.until(
-                ExpectedConditions.visibilityOfElementLocated(By.id("totalDays"))
-        ).getText();
+        // ממלאים את תאריכי ה‑Date Picker
+        WebElement departureInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("departureDate")));
+        departureInput.clear();
+        departureInput.sendKeys(depDateStr);
 
-        Assert.assertEquals(totalDaysText, "30", "סה\"כ הימים אינו תקין");
+        WebElement returnInput = wait.until(ExpectedConditions.elementToBeClickable(By.id("returnDate")));
+        returnInput.clear();
+        returnInput.sendKeys(retDateStr);
 
-        wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//button[contains(text(),'הלאה לפרטי הנוסעים')]"))).click();
+        // 6. בדיקת סה"כ ימים
+        WebElement totalDays = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("totalDays")));
+        Assert.assertEquals(totalDays.getText(), "30", "סה\"כ הימים אינו תקין");
 
+        // 7. הלאה לפרטי הנוסעים
+        wait.until(ExpectedConditions.elementToBeClickable(
+                By.xpath("//button[contains(text(),'הלאה לפרטי הנוסעים')]")
+        )).click();
+
+        // 8. בדיקה שהדף נפתח
         Assert.assertTrue(driver.getCurrentUrl().contains("passengers"),
                 "דף פרטי הנוסעים לא נפתח");
     }
